@@ -1,0 +1,6 @@
+*.pyc
+/venv
+.git
+build
+dist
+Diary.egg-info
