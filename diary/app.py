@@ -1,6 +1,8 @@
 import boto3
 import logging
+import sys
 
+from . import utils
 
 logger = logging.getLogger("diary")
 
@@ -76,19 +78,19 @@ class Diary(object):
         # NOTE: there is a 4KB limit (~4096 bytes) on ssm values
         # assuming UTF-8, each char will need 1-4 bytes, so we can store between
         # 4096 - 1024 characters depending on bytes used, 
-        size = len(self.value);
-        
-        # warn users if characters are greater than 1024,
-        # as they could potentially have a value thats too big
-        if(size > 1024):
-            logger.warning("Warning! SSM has a 4KB parameter limit. The value for %s is potentially too large." % self.name)
+        size = sys.getsizeof(self.value);
+
+        if(size > 1024 and size < 4096):
+            logger.warning("SSM has a 4KB parameter limit. The value for %s is potentially too large." % self.name)
         # throw error if we have more than 4096 characters, we know this will be 
         # too big for parameter store
         elif(size > 4096):
             logger.error(
-                "The value for %s is greater than 4KB. SSM only supports parameters up to 4KB." % self.name
+                "SSM only supports parameters up to 4KB."
             )
-            raise
+            raise RuntimeError(
+              "SSM only supports parameters up to 4KB. Value of %s is %s bytes." 
+              % (self.name, size))
     
     
     def assume_role(self, role_arn, name):

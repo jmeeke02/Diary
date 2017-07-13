@@ -1,7 +1,7 @@
 import argparse
 import logging
 
-from diary import logger, app
+from diary import loggers, app
 
 logger = logging.getLogger("diary")
 
@@ -50,11 +50,12 @@ def configure_logging(verbosity):
 
 def main():
     args = parse_arguments();
-    
+    configure_logging(args.verbosity)
     diaryApp = app.Diary(name=args.name, description=args.description,
                          value=args.value, string_type=args.type, key_id=args.key,
                          overwrite=args.overwrite, pattern=args.pattern)
                          
+    
     #Check size of SSM parameter
     diaryApp.checkSize()
     
