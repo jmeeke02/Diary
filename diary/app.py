@@ -1,8 +1,11 @@
-import boto3
+import boto3  # pylint: disable=import-error
 import logging
 import sys
 
-logger = logging.getLogger("diary")
+from botocore.exceptions import ClientError
+
+logger = logging.getLogger(__name__)
+
 
 class Diary(object):
     """Diary Secrets Manager"""
@@ -27,22 +30,26 @@ class Diary(object):
                 logger.info("%s == %s", key, value)
                 setattr(self, key, value)
 
-    def getSecret(self):
+    def get_secret(self):
         """Check if this secret already exists"""
         client = self.session.client('ssm')
 
         try:
-            result = client.get_parameter(
+            client.get_parameter(
                 Name=self.name,
                 WithDecryption=False
             )
-        except:
-            return;
+        except ClientError as error:
+            if error.response['Error']['Code'] == 'ParameterNotFound':
+                return
+            else:
+                raise
 
-        raise UserWarning("The parameter already exists. To overwrite this value, set the --overwrite flag.")
+        raise UserWarning('The parameter already exists. To overwrite this '
+                          'value, set the --overwrite flag.')
 
 
-    def putSecret(self):
+    def put_secret(self):
         """Put a secret into SSM"""
         client = self.session.client('ssm')
 
@@ -51,44 +58,43 @@ class Diary(object):
         key_id = self.key_id
         value = self.value
 
-        if self.description == None:
-            setattr(self, "description", "Secret for AWS")
+        if self.description is None:
+            self.description = 'Secret for AWS'
+
+        params = dict(Name=name,
+                      Value=value,
+                      Type=string_type,
+                      Description=self.description,
+                      Overwrite=self.overwrite)
+        if key_id is not None:
+            params['KeyId'] = key_id
 
         try:
-            response = client.put_parameter(
-                Name=name,
-                Value=value,
-                Type=string_type,
-                Description=self.description,
-                Overwrite=self.overwrite,
-                KeyId=key_id
-            )
+            response = client.put_parameter(**params)
         except:
-            logger.error(
-                "Cannot put secret=%s using type=%s and key=%s",
-                name, string_type, key_id
-            )
+            logger.error('Cannot put secret=%s using type=%s and key=%s',
+                         name, string_type, key_id)
             raise
 
         return response
 
-    def checkSize(self):
+    def check_size(self):
         # NOTE: there is a 4KB limit (~4096 bytes) on ssm values
-        # assuming UTF-8, each char will need 1-4 bytes, so we can store between
-        # 4096 - 1024 characters depending on bytes used,
-        size = sys.getsizeof(self.value);
+        # assuming UTF-8, each char will need 1-4 bytes, so we can
+        # store between 4096 - 1024 characters depending on bytes used
+        size = sys.getsizeof(self.value)
 
-        if(size > 1024 and size < 4096):
-            logger.warning("SSM has a 4KB parameter limit. The value for %s is potentially too large." % self.name)
-        # throw error if we have more than 4096 characters, we know this will be
-        # too big for parameter store
-        elif(size > 4096):
-            logger.error(
-                "SSM only supports parameters up to 4KB."
-            )
+        if size > 1024 and size < 4096:
+            logger.warning('SSM has a 4KB parameter limit. The value '
+                           'for %s is potentially too large.', self.name)
+        # throw error if we have more than 4096 characters, we know this
+        # will be too big for parameter store
+        elif size > 4096:
+            logger.error('SSM only supports parameters up to 4KB.')
             raise RuntimeError(
-              "SSM only supports parameters up to 4KB. Value of %s is %s bytes."
-              % (self.name, size))
+                ('SSM only supports parameters up to 4KB. Value of %s '
+                 'is %s bytes.') % (self.name, size)
+            )
 
 
     def assume_role(self, role_arn, name):
