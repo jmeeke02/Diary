@@ -2,8 +2,6 @@ import boto3
 import logging
 import sys
 
-from . import utils
-
 logger = logging.getLogger("diary")
 
 class Diary(object):
@@ -17,22 +15,22 @@ class Diary(object):
     pattern = None
     session = boto3
 
-    
+
     def __init__(self, **kwargs):
         # Get all required paramters in args tuple
         args = (kwargs['name'], kwargs['value'], kwargs['string_type'])
         if not all(args):
             raise RuntimeError("Missing args %r" % (args,))
-        
+
         for key, value in kwargs.items():
             if hasattr(self, key) and value:
                 logger.info("%s == %s", key, value)
                 setattr(self, key, value)
-                
+
     def getSecret(self):
         """Check if this secret already exists"""
         client = self.session.client('ssm')
-        
+
         try:
             result = client.get_parameter(
                 Name=self.name,
@@ -40,22 +38,22 @@ class Diary(object):
             )
         except:
             return;
-        
+
         raise UserWarning("The parameter already exists. To overwrite this value, set the --overwrite flag.")
-        
-    
+
+
     def putSecret(self):
         """Put a secret into SSM"""
         client = self.session.client('ssm')
-        
+
         name = self.name
         string_type = self.string_type
         key_id = self.key_id
         value = self.value
-        
+
         if self.description == None:
             setattr(self, "description", "Secret for AWS")
-        
+
         try:
             response = client.put_parameter(
                 Name=name,
@@ -71,28 +69,28 @@ class Diary(object):
                 name, string_type, key_id
             )
             raise
-        
+
         return response
-    
+
     def checkSize(self):
         # NOTE: there is a 4KB limit (~4096 bytes) on ssm values
         # assuming UTF-8, each char will need 1-4 bytes, so we can store between
-        # 4096 - 1024 characters depending on bytes used, 
+        # 4096 - 1024 characters depending on bytes used,
         size = sys.getsizeof(self.value);
 
         if(size > 1024 and size < 4096):
             logger.warning("SSM has a 4KB parameter limit. The value for %s is potentially too large." % self.name)
-        # throw error if we have more than 4096 characters, we know this will be 
+        # throw error if we have more than 4096 characters, we know this will be
         # too big for parameter store
         elif(size > 4096):
             logger.error(
                 "SSM only supports parameters up to 4KB."
             )
             raise RuntimeError(
-              "SSM only supports parameters up to 4KB. Value of %s is %s bytes." 
+              "SSM only supports parameters up to 4KB. Value of %s is %s bytes."
               % (self.name, size))
-    
-    
+
+
     def assume_role(self, role_arn, name):
         """Assume a role for Diary"""
         client = self.session.client('sts')
