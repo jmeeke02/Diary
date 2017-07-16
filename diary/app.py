@@ -84,12 +84,7 @@ class Diary(object):
         # store between 4096 - 1024 characters depending on bytes used
         size = sys.getsizeof(self.value)
 
-        if size > 1024 and size < 4096:
-            logger.warning('SSM has a 4KB parameter limit. The value '
-                           'for %s is potentially too large.', self.name)
-        # throw error if we have more than 4096 characters, we know this
-        # will be too big for parameter store
-        elif size > 4096:
+        if size > 4096:
             logger.error('SSM only supports parameters up to 4KB.')
             raise RuntimeError(
                 ('SSM only supports parameters up to 4KB. Value of %s '
