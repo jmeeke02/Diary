@@ -57,7 +57,6 @@ def configure_logging(verbosity):
     if log_level < 10:
         log_level = 10
 
-    # set the Logger from its default (WARNING) -> args.verbosity
     loggers.configure(logging.getLogger(), log_level)
 
 def main():
